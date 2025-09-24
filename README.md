@@ -135,8 +135,8 @@ The UI hides raw IDs (city/geozone) and shows readable labels (“Bruxelles”, 
 Install my-project with npm
 
 ```bash
-  npm install my-project
-  cd my-project
+  npm install poppy
+  cd poppy
 ```
     
 ## Assumptions
@@ -189,7 +189,6 @@ Create apps/web/.env (see .env.example if present):
 ```bash
 VITE_POPPY_PARTNER_KEY=your-partner-api-key
 
-# Optional ORS (routing ETA). If absent or false → crow-fly fallback is used.
 VITE_USE_ORS=true
 VITE_ORS_API_KEY=your-ors-key
 ```
@@ -204,7 +203,7 @@ npm run -w @poppy/shared build
 
 start the web app
 npm run web
-# → http://localhost:5173 (or 5174 if the port is busy)
+# → http://localhost:5173
 ```
 
 ## Running Tests
