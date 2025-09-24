@@ -80,6 +80,7 @@ Output:
 - scenarios: raw totals for both bases.
 
 ## Architecture 
+```http
 Poppy/
 ├─ apps/
 │  ├─ web/
@@ -126,7 +127,8 @@ Poppy/
 ├─ package-lock.json
 ├─ tsconfig.base.json
 └─ README.md
-
+```
+The UI hides raw IDs (city/geozone) and shows readable labels (“Bruxelles”, “Zones parking (voitures)”).
 
 ## Installation
 
