@@ -1,0 +1,11 @@
+{
+"cityId": "a88ea9d0-3d5e-4002-8bbf-775313a5973c",
+"geozoneId": "62c4bd62-881c-473e-8a6b-fbedfd276739",
+"speed": { "walkKmh": 5, "driveKmh": 25 },
+"journey": {
+"stages": [
+{ "from": {"lat": 50.8369, "lng": 4.3350}, "to": {"lat": 50.8350, "lng": 4.3570}, "stopMinutes": 120 },
+{ "from": {"lat": 50.8350, "lng": 4.3570}, "to": {"lat": 50.8270, "lng": 4.3727}, "stopMinutes": 0 }
+]
+}
+}
