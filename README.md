@@ -80,7 +80,7 @@ Output:
 - scenarios: raw totals for both bases.
 
 ## Architecture 
-```http
+```bash
 Poppy/
 ├─ apps/
 │  ├─ web/
@@ -153,15 +153,15 @@ Install my-project with npm
 ## APIs & data
 
 #### Vehicule & Brussels (Brussels)
-```http
+```bash
    /api/v3/cities/a88ea9d0-3d5e-4002-8bbf-775313a5973c/vehicles
 ```
 #### Geozones (parking/no-parking):
-```http
+```bash
    /api/v3/geozones/62c4bd62-881c-473e-8a6b-fbedfd276739
 ```
 #### Pricing (valid params only):
-```http
+```bash
    /api/v3/pricing/pay-per-use?modelType=car&tier=S|M|L|XL
 ```
 #### Important:
