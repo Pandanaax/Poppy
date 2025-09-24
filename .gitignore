@@ -1,11 +1,27 @@
-﻿node_modules
+﻿# node / workspaces
+node_modules/
+*.log
 npm-debug.log*
-dist
-build
-.vite
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# builds / caches
+dist/
+build/
+.out/
+.cache/
+.vite/
+coverage/
+
+# editors / OS
 .DS_Store
 Thumbs.db
-.expo
-.vscode
-.idea
-.env*
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# env
+.env
+.env.*
+!.env.example
