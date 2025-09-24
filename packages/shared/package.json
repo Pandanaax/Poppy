@@ -11,8 +11,8 @@
   },
   "files": ["dist"],
   "scripts": {
-    "clean": "rimraf dist || rd /s /q dist",
-    "build": "npm run clean && tsc -p tsconfig.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage"

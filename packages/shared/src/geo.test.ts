@@ -1,6 +1,6 @@
 // packages/shared/src/geo.test.ts
 import { describe, it, expect } from "vitest";
-import { buildParkingTesterFromPayload } from "./geo";
+import { buildParkingTesterFromPayload } from "./geo.js";
 
 describe("geo.buildParkingTesterFromPayload", () => {
   it("supports MultiPolygon and holes", () => {

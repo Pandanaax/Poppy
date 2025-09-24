@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchVehicles, fetchParkingTester, fetchPricingForTier, VEHICLES_URL, GEOZONES_URL, PRICING_URL } from "./api";
+import { fetchVehicles, fetchParkingTester, fetchPricingForTier, VEHICLES_URL, GEOZONES_URL, PRICING_URL } from "./api.js";
 
 beforeEach(() => {
   vi.restoreAllMocks();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { crowFlyProvider } from "./routes";
+import { crowFlyProvider } from "./routes.js";
 
 // 1° latitude ≈ 111.195 km — good for deterministic checks
 const A = { lat: 0, lng: 0 };

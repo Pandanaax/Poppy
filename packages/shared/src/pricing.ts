@@ -1,4 +1,3 @@
-// packages/shared/src/pricing.ts
 import { DRIVE_KMH, WALK_KMH, haversineKm } from "./geo.js";
 import type {
   Journey,
@@ -10,38 +9,41 @@ import type {
 } from "./types.js";
 import type { RouteProvider } from "./routes.js";
 
-/** -------- cost helpers -------- */
+/** Local helper type: some payloads don't include caps, keep them optional */
+type CapsFriendlyPricing = Pricing & Partial<{ hourCapPrice: number; dayCapPrice: number }>;
+
+/** -------- cost helpers (values in thousandths, excl. VAT) -------- */
 
 // Works in minutes (easier since wMin is already known from ORS or fallback)
-function reservationCost(walkMinutes: number, pricing: Pricing) {
+function reservationCost(walkMinutes: number, pricing: CapsFriendlyPricing) {
   const paid = Math.max(0, walkMinutes - 15); // first 15 min are free
-  return pricing.bookUnitPrice * paid;
+  return (pricing.bookUnitPrice ?? 0) * paid;
 }
 
 function baseDriveCost(
   km: number,
   driveMin: number,
-  pricing: Pricing,
+  pricing: CapsFriendlyPricing,
   choice: TariffChoice
 ) {
   if (choice === "perMinute") {
     // minutePrice (not moveUnitPrice)
-    return pricing.minutePrice * driveMin;
+    return (pricing.minutePrice ?? 0) * driveMin;
   }
   const included = pricing.includedKilometers ?? 0;
   const extraKm = Math.max(0, km - included);
-  return pricing.kilometerPrice * extraKm;
+  return (pricing.kilometerPrice ?? 0) * extraKm;
 }
 
-function pauseCost(pauseMin: number | undefined, pricing: Pricing) {
-  return pricing.pauseUnitPrice * (pauseMin ?? 0);
+function pauseCost(pauseMin: number | undefined, pricing: CapsFriendlyPricing) {
+  return (pricing.pauseUnitPrice ?? 0) * (pauseMin ?? 0);
 }
 
-/** Apply hourly / daily caps to a usage session */
-function applyCaps(rawCost: number, totalMinutes: number, pricing: Pricing) {
+/** Apply hourly / daily caps to a usage session (if present) */
+function applyCaps(rawCost: number, totalMinutes: number, pricing: CapsFriendlyPricing) {
   let capped = rawCost;
 
-  //  caps are optional: if not in API, default to 0
+  // Optional caps: if not provided by API, treat as 0
   const hourCap = pricing.hourCapPrice ?? 0;
   const dayCap = pricing.dayCapPrice ?? 0;
 
@@ -56,7 +58,7 @@ function applyCaps(rawCost: number, totalMinutes: number, pricing: Pricing) {
   return capped;
 }
 
-/** Nearest vehicle */
+/** Nearest vehicle (simple Haversine) */
 function nearestVehicle(from: { lat: number; lng: number }, vs: Vehicle[]) {
   if (vs.length === 0) throw new Error("No vehicle available at the moment.");
   let best: { v: Vehicle; km: number } | null = null;
@@ -85,23 +87,36 @@ async function walkMinutesToVehicle(
   return (km / WALK_KMH) * 60;
 }
 
-/** --------- DP with sessions + caps --------- */
+/** --------- DP with sessions + caps ---------
+ * We compute two scenarios independently: per-minute and per-km.
+ * At each leg, we either (a) start a new session, or (b) keep an existing session.
+ * We can only END (close a session) when the destination is in a parking zone.
+ */
 type HasState = {
-  fixedCost: number;   // sum of sessions already closed (caps applied)
-  sessionMin: number;  // minutes of the current session (booking + drive + pause)
-  sessionCost: number; // raw cost of the current session (booking + unlock + drive + pause)
+  fixedCost: number;               // sum of sessions already closed (caps applied)
+  sessionMin: number;              // minutes of the current session (booking + drive + pause)
+  sessionCost: number;             // raw cost of the current session (booking + unlock + drive + pause)
+  pricing: CapsFriendlyPricing;    // pricing used for THIS session (needed to apply caps correctly)
 };
 
 export async function estimateJourney(
   journey: Journey,
   ctx: {
     vehicles: Vehicle[];
-    pricingByTier: Record<"S" | "M" | "L", { perMinute: Pricing; perKilometer: Pricing }>;
+    pricingByTier: Record<"S" | "M" | "L", { perMinute: CapsFriendlyPricing; perKilometer: CapsFriendlyPricing }>;
     inParking: (lat: number, lng: number) => boolean;
     routeProvider?: RouteProvider;
   }
 ): Promise<EstimateResult> {
   const { legs } = journey;
+
+  function pickBestHAS(current: HasState | null, candidate: HasState): HasState {
+    if (!current) return candidate;
+    // Compare both states as if we closed them now (to choose the best ongoing session)
+    const curScore = current.fixedCost + applyCaps(current.sessionCost, current.sessionMin, current.pricing);
+    const candScore = candidate.fixedCost + applyCaps(candidate.sessionCost, candidate.sessionMin, candidate.pricing);
+    return candScore <= curScore ? candidate : current;
+  }
 
   async function solve(choice: TariffChoice) {
     const N = legs.length;
@@ -114,7 +129,7 @@ export async function estimateJourney(
 
       // Vehicle & pricing if we (re)start a session on this leg
       const { v } = nearestVehicle(leg.from, ctx.vehicles);
-      const tier = v.tier as "S" | "M" | "L";
+      const tier = (v.tier as "S" | "M" | "L") ?? "S";
       const pricing = ctx.pricingByTier[tier][choice];
 
       // Distances / durations
@@ -123,7 +138,7 @@ export async function estimateJourney(
       const wMin = await walkMinutesToVehicle(leg.from, v, ctx.routeProvider);
 
       // Leg costs
-      const reserve = reservationCost(wMin, pricing) + pricing.unlockFee;
+      const reserve = reservationCost(wMin, pricing) + (pricing.unlockFee ?? 0);
       const drive = baseDriveCost(kmDrive, dMin, pricing, choice);
       const pause = pauseCost(leg.stopMinutes, pricing);
 
@@ -133,11 +148,13 @@ export async function estimateJourney(
           fixedCost: dpNO[i],
           sessionMin: Math.max(0, wMin - 15) + dMin + (leg.stopMinutes ?? 0), // paid minutes
           sessionCost: reserve + drive + pause,
+          pricing,
         };
-        dpHAS[i + 1] = pickBestHAS(dpHAS[i + 1], newHAS, pricing);
+        dpHAS[i + 1] = pickBestHAS(dpHAS[i + 1], newHAS);
 
+        // Optionally END here if destination allows parking
         if (ctx.inParking(leg.to.lat, leg.to.lng)) {
-          const closed = newHAS.fixedCost + applyCaps(newHAS.sessionCost, newHAS.sessionMin, pricing);
+          const closed = newHAS.fixedCost + applyCaps(newHAS.sessionCost, newHAS.sessionMin, newHAS.pricing);
           if (closed < dpNO[i + 1]) dpNO[i + 1] = closed;
         }
       }
@@ -149,35 +166,26 @@ export async function estimateJourney(
           fixedCost: cur.fixedCost,
           sessionMin: cur.sessionMin + dMin + (leg.stopMinutes ?? 0),
           sessionCost: cur.sessionCost + drive + pause, // no re-reservation
+          pricing: cur.pricing,                          // keep same pricing
         };
-        dpHAS[i + 1] = pickBestHAS(dpHAS[i + 1], keep, pricing);
+        dpHAS[i + 1] = pickBestHAS(dpHAS[i + 1], keep);
 
         if (ctx.inParking(leg.to.lat, leg.to.lng)) {
-          const closed = keep.fixedCost + applyCaps(keep.sessionCost, keep.sessionMin, pricing);
+          const closed = keep.fixedCost + applyCaps(keep.sessionCost, keep.sessionMin, keep.pricing);
           if (closed < dpNO[i + 1]) dpNO[i + 1] = closed;
         }
       }
     }
 
-    // Final closure if still in HAS
-    const { v: v0 } = nearestVehicle(legs[0].from, ctx.vehicles);
-    const endPricing = ctx.pricingByTier[v0.tier as "S" | "M" | "L"][choice];
-
+    // Final closure if still in HAS (close with the SAME pricing as the open session)
     let bestTotal = dpNO[N];
     if (dpHAS[N]) {
       const cur = dpHAS[N]!;
-      const closed = cur.fixedCost + applyCaps(cur.sessionCost, cur.sessionMin, endPricing);
+      const closed = cur.fixedCost + applyCaps(cur.sessionCost, cur.sessionMin, cur.pricing);
       if (closed < bestTotal) bestTotal = closed;
     }
 
     return { total: bestTotal };
-  }
-
-  function pickBestHAS(current: HasState | null, candidate: HasState, pricing: Pricing): HasState {
-    if (!current) return candidate;
-    const curScore = current.fixedCost + applyCaps(current.sessionCost, current.sessionMin, pricing);
-    const candScore = candidate.fixedCost + applyCaps(candidate.sessionCost, candidate.sessionMin, pricing);
-    return candScore <= curScore ? candidate : current;
   }
 
   const A = await solve("perMinute");
@@ -191,7 +199,7 @@ export async function estimateJourney(
       from: leg.from,
       to: leg.to,
       stopMinutes: leg.stopMinutes ?? 0,
-      // For the UI you can reconstruct KEEP/END if needed; here we default to KEEP
+      // For the UI you can reconstruct KEEP/END per leg if needed; default to KEEP here
       actionAfterLeg: "KEEP" as const,
     })),
     scenarios: { perMinute: Math.round(A.total), perKilometer: Math.round(B.total) },

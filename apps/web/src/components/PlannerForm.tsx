@@ -8,14 +8,13 @@ import {
   crowFlyProvider,
 } from "@poppy/shared";
 import { Card, CardTitle } from "../ui/Card";
-import { Button } from "./../ui/Button";
+import { Button } from "../ui/Button";
 import { StageRow } from "./StageRow";
 import { ResultCard } from "./ResultCard";
 import { CITY_LABEL, GEOFENCE_LABEL } from "../constants";
-import { makeRouteProvider } from "./../lib/ors";
+import { makeRouteProvider } from "../lib/ors";
 
 type Fee = { name: string; amount: number };
-
 type ProviderName = "ORS" | "CrowFly";
 
 const asFeeArray = (v: any): Fee[] => {
@@ -36,13 +35,13 @@ export function PlannerForm() {
   const [error, setError] = useState<string | null>(null);
 
   // Additional fees (e.g., airport)
-  const [feeOptions, setFeeOptions] = useState<{ name: string; amount: number }[]>([]);
+  const [feeOptions, setFeeOptions] = useState<Fee[]>([]);
   const [selectedFee, setSelectedFee] = useState<string>("");
 
-  // Display which routing provider is used
+  // Routing provider used
   const [routingMode, setRoutingMode] = useState<ProviderName>("CrowFly");
 
-  // helpers
+  // Helpers
   const stagesKey = useMemo(() => JSON.stringify(stages), [stages]);
   const mounted = useRef(false);
   const debounceId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,13 +52,14 @@ export function PlannerForm() {
   const resultRef = useRef<HTMLDivElement>(null);
   function scrollToResults(behavior: ScrollBehavior = "smooth") {
     if (typeof window === "undefined") return;
-    if (typeof window.matchMedia !== "function") return; // <-- AJOUT
-    const isSmall = window.matchMedia("(max-width: 1023px)").matches;
+    const mm = (window as any).matchMedia;
+    if (typeof mm !== "function") return; // guard for non-browser/test
+    const isSmall = mm("(max-width: 1023px)").matches;
     if (!isSmall) return;
     resultRef.current?.scrollIntoView({ behavior, block: "start" });
   }
 
-  // Choose routing provider (ORS if enabled and key provided; falls back to crow-fly)
+  // Choose routing provider (ORS if enabled & key provided; fallback: crow-fly)
   const routeProvider = useMemo(() => {
     const use = String(import.meta.env.VITE_USE_ORS ?? "").toLowerCase() === "true";
     const hasKey = !!import.meta.env.VITE_ORS_API_KEY;
@@ -91,7 +91,7 @@ export function PlannerForm() {
     }
   };
 
-  // Prefetch default fee list (tier "M")
+  // Prefetch default fee list (e.g., tier "M")
   useEffect(() => {
     (async () => {
       try {
@@ -131,7 +131,7 @@ export function PlannerForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If timestamps are provided, auto-fill stopMinutes between successive legs
+  // If timestamps exist, auto-fill stopMinutes between successive legs
   function diffMinutes(aISO?: string, bISO?: string): number | null {
     if (!aISO || !bISO) return null;
     const a = new Date(aISO).getTime();
@@ -182,6 +182,7 @@ export function PlannerForm() {
         })
       );
 
+      // populate fee dropdown from the first available tier
       const firstTier = tiers[0];
       const fees = asFeeArray(pricingByTier[firstTier]?.additionalFees);
       if (fees.length) setFeeOptions(fees);
@@ -323,7 +324,7 @@ export function PlannerForm() {
                     stage={s}
                     index={i}
                     canRemove={stages.length > 1}
-                    onChange={(ns) => updateStage(i, ns)}
+                    onChange={(ns) => setStages(prev => prev.map((x, idx) => (idx === i ? ns : x)))}
                     onRemove={() => removeStage(i)}
                   />
                 ))}

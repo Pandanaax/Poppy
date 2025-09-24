@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { smartBest } from "./smart";
-import type { Pricing } from "./types";
+import { smartBest } from "./smart.js";
+import type { Pricing } from "./types.js";
 
 // Helper to build minimal Pricing quickly
 const P = (over: Partial<Pricing> = {}): Pricing => ({

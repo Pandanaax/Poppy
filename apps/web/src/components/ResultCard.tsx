@@ -22,7 +22,7 @@ export function ResultCard({ data }: { data: any }) {
         <span style={{ color: "rgb(var(--brand))" }}>
           {priceEuroInclVAT.toFixed(2)} €{" "}
         </span>
-        <span className="text-black text-[10px] sm:text-[11px] leading-none">incl. VAT</span>
+        <span className="text-black text-[10px] sm:text-[14px] leading-none">incl. VAT</span>
       </div>
 
       {/* Soft red subtitle */}
