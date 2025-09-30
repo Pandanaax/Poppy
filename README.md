@@ -10,7 +10,7 @@ A multi-leg journey planner & price estimator for Poppy. It picks the cheapest s
 
 **Client:** React, Redux, TailwindCSS
 
-**Server:** Node, Express
+**Server:** package shared
 
 
 ## Features
