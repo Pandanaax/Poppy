@@ -21,3 +21,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
+# env
+.env
+.env.*
+!.env.example
